@@ -286,23 +286,35 @@ describe("PathFilter", () => {
       expect(filter.isAllowed("my notes/important file.md")).toBe(true);
     });
 
-    test("handles directories (no extension)", () => {
+    test("handles explicit directory paths (trailing slash)", () => {
       const filter = new PathFilter();
-      // Directories should be allowed (no extension check)
+      // Paths with trailing slash are always treated as directories, no extension check
       expect(filter.isAllowed("folder/subfolder/")).toBe(true);
-      expect(filter.isAllowed("notes")).toBe(true);
     });
 
-    test("handles directories with dots in their names", () => {
+    test("blocks extension-less and dotfile paths as files", () => {
       const filter = new PathFilter();
-      // Folders with dots should be allowed (common pattern: "1. Project", "2.5 Notes")
+      // Extension-less and dotfile paths are treated as files and must pass the extension allowlist
+      expect(filter.isAllowed("notes")).toBe(false);
+      expect(filter.isAllowed("1. Project/subfolder")).toBe(false);
+      // Files within directories still work normally
+      expect(filter.isAllowed("1. Project/note.md")).toBe(true);
+      expect(filter.isAllowed("1. Project/file.js")).toBe(false);
+      // "1. Project" and "2. Archive" style names have a dot followed by a space,
+      // so isFile() correctly exempts them from the allowlist (not a real extension).
+      // filesystem.ts rejects them independently via isDirectory().
       expect(filter.isAllowed("1. Project")).toBe(true);
       expect(filter.isAllowed("2. Archive")).toBe(true);
-      expect(filter.isAllowed("3.5 Research")).toBe(true);
-      expect(filter.isAllowed("1. Project/subfolder")).toBe(true);
-      expect(filter.isAllowed("1. Project/note.md")).toBe(true);
-      // But files in those folders should still need proper extensions
-      expect(filter.isAllowed("1. Project/file.js")).toBe(false);
+    });
+
+    test("blocks dotfiles and extension-less files (security: CVE-class bypass)", () => {
+      const filter = new PathFilter();
+      expect(filter.isAllowed(".env")).toBe(false);
+      expect(filter.isAllowed(".netrc")).toBe(false);
+      expect(filter.isAllowed("secrets")).toBe(false);
+      expect(filter.isAllowed("Makefile")).toBe(false);
+      expect(filter.isAllowed("subdir/.env")).toBe(false);
+      expect(filter.isAllowed("project/credentials")).toBe(false);
     });
   });
 });

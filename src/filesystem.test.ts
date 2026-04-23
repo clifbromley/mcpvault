@@ -540,7 +540,7 @@ test("handle directory deletion attempt", async () => {
 
   expect(result.success).toBe(false);
   expect(result.path).toBe(testPath);
-  expect(result.message).toContain("is not a file");
+  expect(result.message).toContain("Access denied");
 });
 
 test("delete note with local trash mode", async () => {
