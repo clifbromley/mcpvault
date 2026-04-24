@@ -27,25 +27,26 @@ export class FileSystemService {
     this.frontmatterHandler = frontmatterHandler || new FrontmatterHandler();
   }
 
+  private normalizePath(rawPath: string): { fullPath: string; cleanPath: string } {
+    const trimmed = (rawPath || '').trim();
+    const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed;
+    const fullPath = resolve(join(this.vaultPath, withoutLeadingSlash));
+    const cleanPath = relative(this.vaultPath, fullPath);
+    return { fullPath, cleanPath };
+  }
+
+  private cleanRelativePath(path: string): string {
+    const { cleanPath } = this.normalizePath(path);
+    // If the path escapes the vault, return the stripped form; resolvePath will
+    // throw "Path traversal not allowed" before any file access occurs.
+    return cleanPath.startsWith('..') ? (path || '').trim().replace(/^\//, '') : cleanPath;
+  }
+
   private resolvePath(relativePath: string): string {
-    // Handle undefined or null path
-    if (!relativePath) {
-      relativePath = '';
-    }
-
-    // Trim whitespace from path
-    relativePath = relativePath.trim();
-
-    // Normalize and resolve the path within the vault
-    const normalizedPath = relativePath.startsWith('/')
-      ? relativePath.slice(1)
-      : relativePath;
-
-    const fullPath = resolve(join(this.vaultPath, normalizedPath));
+    const { fullPath, cleanPath } = this.normalizePath(relativePath);
 
     // Security check: ensure path is within vault (lexical)
-    const relativeToVault = relative(this.vaultPath, fullPath);
-    if (relativeToVault.startsWith('..')) {
+    if (cleanPath.startsWith('..')) {
       throw new Error(`Path traversal not allowed: ${relativePath}. Paths must be within the vault directory.`);
     }
 
@@ -91,7 +92,7 @@ export class FileSystemService {
   async readNote(path: string): Promise<ParsedNote> {
     const fullPath = this.resolvePath(path);
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       throw new Error(`Access denied: ${path}. This path is restricted (system files like .obsidian, .git, and dotfiles are not accessible).`);
     }
 
@@ -124,7 +125,7 @@ export class FileSystemService {
     const { path, content, frontmatter, mode = 'overwrite' } = params;
     const fullPath = this.resolvePath(path);
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       throw new Error(`Access denied: ${path}. This path is restricted (system files like .obsidian, .git, and dotfiles are not accessible).`);
     }
 
@@ -206,7 +207,7 @@ export class FileSystemService {
   async patchNote(params: PatchNoteParams): Promise<PatchNoteResult> {
     const { path, oldString, newString, replaceAll = false } = params;
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       return {
         success: false,
         path,
@@ -359,7 +360,7 @@ export class FileSystemService {
   async exists(path: string): Promise<boolean> {
     const fullPath = this.resolvePath(path);
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       return false;
     }
 
@@ -374,7 +375,7 @@ export class FileSystemService {
   async isDirectory(path: string): Promise<boolean> {
     const fullPath = this.resolvePath(path);
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       return false;
     }
 
@@ -400,7 +401,7 @@ export class FileSystemService {
 
     const fullPath = this.resolvePath(path);
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       return {
         success: false,
         path: path,
@@ -494,7 +495,7 @@ export class FileSystemService {
   async moveNote(params: MoveNoteParams): Promise<MoveResult> {
     const { oldPath, newPath, overwrite = false } = params;
 
-    if (!this.pathFilter.isAllowed(oldPath)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(oldPath))) {
       return {
         success: false,
         oldPath,
@@ -503,7 +504,7 @@ export class FileSystemService {
       };
     }
 
-    if (!this.pathFilter.isAllowed(newPath)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(newPath))) {
       return {
         success: false,
         oldPath,
@@ -587,7 +588,7 @@ export class FileSystemService {
       };
     }
 
-    if (!this.pathFilter.isAllowedForListing(oldPath)) {
+    if (!this.pathFilter.isAllowedForListing(this.cleanRelativePath(oldPath))) {
       return {
         success: false,
         oldPath,
@@ -596,7 +597,7 @@ export class FileSystemService {
       };
     }
 
-    if (!this.pathFilter.isAllowedForListing(newPath)) {
+    if (!this.pathFilter.isAllowedForListing(this.cleanRelativePath(newPath))) {
       return {
         success: false,
         oldPath,
@@ -709,7 +710,7 @@ export class FileSystemService {
 
     const results = await Promise.allSettled(
       paths.map(async (path) => {
-        if (!this.pathFilter.isAllowed(path)) {
+        if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
           throw new Error(`Access denied: ${path}. This path is restricted (system files like .obsidian, .git, and dotfiles are not accessible).`);
         }
 
@@ -751,7 +752,7 @@ export class FileSystemService {
   async updateFrontmatter(params: UpdateFrontmatterParams): Promise<void> {
     const { path, frontmatter, merge = true } = params;
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       throw new Error(`Access denied: ${path}. This path is restricted (system files like .obsidian, .git, and dotfiles are not accessible).`);
     }
 
@@ -788,7 +789,7 @@ export class FileSystemService {
   async getNotesInfo(paths: string[]): Promise<NoteInfo[]> {
     const results = await Promise.allSettled(
       paths.map(async (path): Promise<NoteInfo> => {
-        if (!this.pathFilter.isAllowed(path)) {
+        if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
           throw new Error(`Access denied: ${path}. This path is restricted (system files like .obsidian, .git, and dotfiles are not accessible).`);
         }
 
@@ -831,7 +832,7 @@ export class FileSystemService {
   async manageTags(params: TagManagementParams): Promise<TagManagementResult> {
     const { path, operation, tags = [] } = params;
 
-    if (!this.pathFilter.isAllowed(path)) {
+    if (!this.pathFilter.isAllowedFilePath(this.cleanRelativePath(path))) {
       return {
         path,
         operation,
@@ -954,7 +955,7 @@ export class FileSystemService {
           totalFolders++;
           await scanDirectory(fullEntryPath, entryRelativePath);
         } else if (entry.isFile()) {
-          if (!this.pathFilter.isAllowed(entryRelativePath)) {
+          if (!this.pathFilter.isAllowedFilePath(entryRelativePath)) {
             continue;
           }
 
@@ -1006,7 +1007,7 @@ export class FileSystemService {
         if (entry.isDirectory()) {
           if (!this.pathFilter.isAllowedForListing(entryRelativePath)) continue;
           await scanDirectory(fullEntryPath, entryRelativePath);
-        } else if (entry.isFile() && this.pathFilter.isAllowed(entryRelativePath)) {
+        } else if (entry.isFile() && this.pathFilter.isAllowedFilePath(entryRelativePath)) {
           try {
             const content = await readFile(fullEntryPath, 'utf-8');
             const parsed = this.frontmatterHandler.parse(content);

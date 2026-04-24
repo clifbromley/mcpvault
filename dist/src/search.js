@@ -29,7 +29,7 @@ export class SearchService {
         const allowedFiles = [];
         for (const fullPath of markdownFiles) {
             const relativePath = fullPath.substring(prefixLen).replace(/\\/g, '/');
-            if (this.pathFilter.isAllowed(relativePath)) {
+            if (this.pathFilter.isAllowedFilePath(relativePath)) {
                 allowedFiles.push({ fullPath, relativePath });
             }
         }

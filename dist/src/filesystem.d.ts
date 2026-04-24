@@ -6,6 +6,8 @@ export declare class FileSystemService {
     private frontmatterHandler;
     private pathFilter;
     constructor(vaultPath: string, pathFilter?: PathFilter, frontmatterHandler?: FrontmatterHandler);
+    private normalizePath;
+    private cleanRelativePath;
     private resolvePath;
     readNote(path: string): Promise<ParsedNote>;
     writeNote(params: NoteWriteParams): Promise<void>;

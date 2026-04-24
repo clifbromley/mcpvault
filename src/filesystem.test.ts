@@ -877,6 +877,50 @@ test("path traversal with nested .. is blocked", async () => {
 });
 
 // ============================================================================
+// IGNORE PATTERN BYPASS VIA LEADING SLASH OR .. SEGMENTS
+// Files with allowed extensions (.md, .txt) inside blocked directories are
+// the meaningful case — non-note extensions are caught by the extension filter
+// regardless, masking the bug.
+// ============================================================================
+
+test("leading slash does not bypass custom ignore pattern for .md files", async () => {
+  // Custom pattern blocking a "private" folder
+  const fs = new FileSystemService(testVaultPath, new PathFilter({ ignoredPatterns: ["private/**"] }));
+  await mkdir(join(testVaultPath, "private"), { recursive: true });
+  await writeFile(join(testVaultPath, "private", "secret.md"), "sensitive content");
+
+  // "/private/secret.md" resolves to <vault>/private/secret.md — should be blocked
+  await expect(fs.readNote("/private/secret.md"))
+    .rejects.toThrow(/Access denied/);
+});
+
+test(".. segments do not bypass custom ignore pattern for .md files", async () => {
+  const fs = new FileSystemService(testVaultPath, new PathFilter({ ignoredPatterns: ["private/**"] }));
+  await mkdir(join(testVaultPath, "private"), { recursive: true });
+  await writeFile(join(testVaultPath, "private", "secret.md"), "sensitive content");
+
+  // "notes/../private/secret.md" resolves to <vault>/private/secret.md — should be blocked
+  await expect(fs.readNote("notes/../private/secret.md"))
+    .rejects.toThrow(/Access denied/);
+});
+
+test("leading slash does not bypass .obsidian ignore pattern for .md files", async () => {
+  await mkdir(join(testVaultPath, ".obsidian"), { recursive: true });
+  await writeFile(join(testVaultPath, ".obsidian", "note.md"), "internal obsidian note");
+
+  await expect(fileSystem.readNote("/.obsidian/note.md"))
+    .rejects.toThrow(/Access denied/);
+});
+
+test(".. segments do not bypass .obsidian ignore pattern for .md files", async () => {
+  await mkdir(join(testVaultPath, ".obsidian"), { recursive: true });
+  await writeFile(join(testVaultPath, ".obsidian", "note.md"), "internal obsidian note");
+
+  await expect(fileSystem.readNote("folder/../.obsidian/note.md"))
+    .rejects.toThrow(/Access denied/);
+});
+
+// ============================================================================
 // SYMLINK SECURITY
 // ============================================================================
 

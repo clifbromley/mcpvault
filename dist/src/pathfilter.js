@@ -36,14 +36,12 @@ export class PathFilter {
         const regex = new RegExp(regexPattern);
         return regex.test(path);
     }
-    isAllowed(path) {
-        // Normalize path separators
+    isAllowedFilePath(path) {
         const normalizedPath = path.replace(/\\/g, '/');
         if (this.isIgnoredPath(normalizedPath)) {
             return false;
         }
-        // For files, check extension if allowedExtensions is configured
-        if (this.allowedExtensions.length > 0 && this.isFile(normalizedPath)) {
+        if (this.allowedExtensions.length > 0) {
             const hasAllowedExtension = this.allowedExtensions.some(ext => normalizedPath.toLowerCase().endsWith(ext.toLowerCase()));
             if (!hasAllowedExtension) {
                 return false;
@@ -66,29 +64,7 @@ export class PathFilter {
         }
         return false;
     }
-    isFile(path) {
-        // A path is a file if it has a file extension at the end
-        // Paths ending with '/' are always directories
-        if (path.endsWith('/')) {
-            return false;
-        }
-        // Get the last component of the path
-        const lastSlashIndex = path.lastIndexOf('/');
-        const lastComponent = lastSlashIndex === -1 ? path : path.substring(lastSlashIndex + 1);
-        // Check if the last component has a file extension
-        // A file extension is a dot followed by 1-10 alphanumeric characters at the end
-        // This distinguishes "file.md" (file) from "1. Project" (directory with dot in name)
-        const lastDotIndex = lastComponent.lastIndexOf('.');
-        if (lastDotIndex === -1 || lastDotIndex === 0) {
-            // No dot, or dot at the start (like .gitignore) - treat as no extension
-            return false;
-        }
-        const extension = lastComponent.substring(lastDotIndex + 1);
-        // Extension should be 1-10 characters and contain only alphanumeric characters
-        // This allows .md, .txt, .markdown but not ". Project" (space after dot)
-        return extension.length >= 1 && extension.length <= 10 && /^[a-zA-Z0-9]+$/.test(extension);
-    }
     filterPaths(paths) {
-        return paths.filter(path => this.isAllowed(path));
+        return paths.filter(path => this.isAllowedFilePath(path));
     }
 }

@@ -4,10 +4,9 @@ export declare class PathFilter {
     private allowedExtensions;
     constructor(config?: Partial<PathFilterConfig>);
     private simpleGlobMatch;
-    isAllowed(path: string): boolean;
+    isAllowedFilePath(path: string): boolean;
     isAllowedForListing(path: string): boolean;
     private isIgnoredPath;
-    private isFile;
     filterPaths(paths: string[]): string[];
 }
 //# sourceMappingURL=pathfilter.d.ts.map
