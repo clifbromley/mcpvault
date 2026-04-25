@@ -15,6 +15,7 @@ This MCP server lets Claude, ChatGPT+, and other assistants access your vault. L
 
 ## Recent Updates
 
+- **v0.11.3 (April 2026):** File access validation improvements: dotfiles and extension-less paths are now consistently filtered, and ignore-pattern handling is more reliable across edge-case inputs.
 - **v0.11.2 (April 2026):** `delete_note` now supports soft-delete with `trashMode`: `none` (permanent), `local` (move to `.trash/` inside vault), or `system` (OS trash). ([#91](https://github.com/bitbonsai/mcpvault/issues/91))
 - **v0.11.1 (April 2026):** Frontmatter updates now use AST-aware YAML preservation. Unmodified fields keep their original formatting: plain dates stay as `YYYY-MM-DD`, quoted strings keep their quotes, and `HH:MM` values are no longer misread as sexagesimal integers. ([#75](https://github.com/bitbonsai/mcpvault/issues/75), [#76](https://github.com/bitbonsai/mcpvault/issues/76), [#77](https://github.com/bitbonsai/mcpvault/issues/77))
 - **v0.11.0 (March 2026):** New `list_all_tags` tool: scan all vault notes for tags with occurrence counts. Obsidian skill now routes to CLI for active file, daily notes, backlinks, and open-in-editor. ([#80](https://github.com/bitbonsai/mcpvault/issues/80))
