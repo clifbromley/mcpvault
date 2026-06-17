@@ -331,4 +331,54 @@ describe("PathFilter", () => {
       );
     });
   });
+
+  describe("restricted-directory equivalence bypass (CWE-178 / CWE-41)", () => {
+    const filter = new PathFilter();
+
+    test("baseline: lowercase restricted paths stay blocked", () => {
+      expect(filter.isAllowed(".git/config")).toBe(false);
+      expect(filter.isAllowed(".obsidian/app.json")).toBe(false);
+      expect(filter.isAllowedForListing(".git/config")).toBe(false);
+      expect(filter.isAllowedForListing(".obsidian/app.json")).toBe(false);
+    });
+
+    test("case variants of restricted dirs are blocked", () => {
+      for (const p of [
+        ".Git/config",
+        ".GIT/config",
+        ".GIT/HEAD",
+        ".Obsidian/app.json",
+        ".oBsIdIaN/secrets.md",
+        ".Git/hooks/pre-commit",
+      ]) {
+        expect(filter.isAllowed(p)).toBe(false);
+        expect(filter.isAllowedForListing(p)).toBe(false);
+      }
+    });
+
+    test("Windows trailing-dot / trailing-space variants are blocked", () => {
+      for (const p of [
+        ".git./config",
+        ".git /config",
+        ".obsidian./app.json",
+        ".obsidian /app.json",
+        ".Git./config",
+      ]) {
+        expect(filter.isAllowed(p)).toBe(false);
+        expect(filter.isAllowedForListing(p)).toBe(false);
+      }
+    });
+
+    test("leading ./ and duplicate separators do not bypass", () => {
+      expect(filter.isAllowed("./.Git/config")).toBe(false);
+      expect(filter.isAllowed(".git//config")).toBe(false);
+    });
+
+    test("legitimate paths are still allowed", () => {
+      expect(filter.isAllowed("note.md")).toBe(true);
+      expect(filter.isAllowed("notes/sub/file.md")).toBe(true);
+      // a folder whose name merely starts with .git-like text but is distinct
+      expect(filter.isAllowed("gitignore-notes/file.md")).toBe(true);
+    });
+  });
 });

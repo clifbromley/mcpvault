@@ -33,8 +33,24 @@ export class PathFilter {
             .replace(/\\\?/g, '[^/]'); // ? matches single character except / (unescape)
         // Ensure we match the full path
         regexPattern = '^' + regexPattern + '$';
-        const regex = new RegExp(regexPattern);
+        // Case-insensitive: on case-insensitive filesystems (macOS, Windows) the OS
+        // resolves ".Git" to ".git", so the deny-list must match regardless of case.
+        const regex = new RegExp(regexPattern, 'i');
         return regex.test(path);
+    }
+    /**
+     * Canonicalize a path for restricted-directory matching. On Windows the
+     * filesystem strips trailing dots and spaces from each path segment, so
+     * ".git." and ".git " both resolve to ".git". Fold those away (and collapse
+     * "./" / duplicate separators) before matching the deny-list, otherwise the
+     * restriction can be bypassed with an equivalent name.
+     */
+    canonicalizeForMatch(normalizedPath) {
+        return normalizedPath
+            .split('/')
+            .filter(seg => seg !== '' && seg !== '.')
+            .map(seg => seg.replace(/[. ]+$/, ''))
+            .join('/');
     }
     isAllowed(path) {
         if (typeof path !== "string") {
@@ -64,9 +80,14 @@ export class PathFilter {
         return !this.isIgnoredPath(normalizedPath);
     }
     isIgnoredPath(normalizedPath) {
+        // Match against the canonical form so case- and trailing dot/space-variants
+        // (".Git/config", ".git./config", ".git /config") cannot bypass the deny-list
+        // on case-insensitive / Windows filesystems.
+        const canonicalPath = this.canonicalizeForMatch(normalizedPath);
         // Check if path matches any ignored pattern
         for (const pattern of this.ignoredPatterns) {
-            if (this.simpleGlobMatch(pattern, normalizedPath)) {
+            if (this.simpleGlobMatch(pattern, normalizedPath) ||
+                this.simpleGlobMatch(pattern, canonicalPath)) {
                 return true;
             }
         }
