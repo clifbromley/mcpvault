@@ -1,5 +1,6 @@
 import type { PathFilterConfig } from "./types.js";
 export declare class PathFilter {
+    private static readonly RESTRICTED_SEGMENTS;
     private ignoredPatterns;
     private allowedExtensions;
     constructor(config?: Partial<PathFilterConfig>);

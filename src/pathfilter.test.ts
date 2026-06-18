@@ -381,4 +381,38 @@ describe("PathFilter", () => {
       expect(filter.isAllowed("gitignore-notes/file.md")).toBe(true);
     });
   });
+
+  describe("restricted directories at any depth (#128)", () => {
+    const filter = new PathFilter();
+
+    test("nested node_modules is ignored", () => {
+      expect(filter.isAllowed("tools/cli/node_modules/commander/Readme.md")).toBe(false);
+      expect(filter.isAllowedForListing("tools/cli/node_modules/commander/Readme.md")).toBe(false);
+      expect(filter.isAllowed("a/b/c/node_modules/x.md")).toBe(false);
+    });
+
+    test("nested .git and .obsidian are ignored (no leak)", () => {
+      expect(filter.isAllowed("tools/somerepo/.git/config")).toBe(false);
+      expect(filter.isAllowed("vaults/nested/.obsidian/secrets.md")).toBe(false);
+      expect(filter.isAllowedForListing("tools/somerepo/.git/config")).toBe(false);
+    });
+
+    test("nested restricted dirs blocked case-insensitively", () => {
+      expect(filter.isAllowed("tools/cli/Node_Modules/x.md")).toBe(false);
+      expect(filter.isAllowed("a/.GIT/config")).toBe(false);
+    });
+
+    test("root-level restricted dirs still blocked (no regression)", () => {
+      expect(filter.isAllowed("node_modules/x.md")).toBe(false);
+      expect(filter.isAllowed(".git/config")).toBe(false);
+      expect(filter.isAllowed(".obsidian/app.json")).toBe(false);
+    });
+
+    test("legit paths that merely contain restricted substrings stay allowed", () => {
+      expect(filter.isAllowed("notes/gitignore-tips.md")).toBe(true);
+      expect(filter.isAllowed("projects/my-node_modules-notes.md")).toBe(true);
+      expect(filter.isAllowed("git/howto.md")).toBe(true);
+      expect(filter.isAllowed("obsidian-plugins/guide.md")).toBe(true);
+    });
+  });
 });

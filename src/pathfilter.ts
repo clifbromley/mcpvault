@@ -1,6 +1,20 @@
 import type { PathFilterConfig } from "./types.js";
 
 export class PathFilter {
+  // Restricted directory/file names denied at ANY depth, not just the vault
+  // root. The glob patterns below are anchored, so `node_modules/**` only
+  // matched a root-level node_modules; nested ones (e.g.
+  // `tools/cli/node_modules/...`) were traversed, polluting the tag index, and
+  // nested `.git`/`.obsidian` leaked their contents (#128). Names are compared
+  // lowercased against each path segment.
+  private static readonly RESTRICTED_SEGMENTS = new Set([
+    '.obsidian',
+    '.git',
+    'node_modules',
+    '.ds_store',
+    'thumbs.db',
+  ]);
+
   private ignoredPatterns: string[];
   private allowedExtensions: string[];
 
@@ -104,6 +118,14 @@ export class PathFilter {
     // (".Git/config", ".git./config", ".git /config") cannot bypass the deny-list
     // on case-insensitive / Windows filesystems.
     const canonicalPath = this.canonicalizeForMatch(normalizedPath);
+
+    // Deny restricted directories/files at any depth: if any path segment is a
+    // restricted name, the path is ignored regardless of nesting (#128).
+    for (const segment of canonicalPath.split('/')) {
+      if (PathFilter.RESTRICTED_SEGMENTS.has(segment.toLowerCase())) {
+        return true;
+      }
+    }
 
     // Check if path matches any ignored pattern
     for (const pattern of this.ignoredPatterns) {
